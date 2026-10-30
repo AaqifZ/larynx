@@ -23,6 +23,8 @@ There are two parts: the menu bar app (`Larynx.app`) and the command line tool (
 
 Set `LARYNX_SIGN_IDENTITY` to the name of a code-signing identity in your keychain. Then the script signs with it, and macOS keeps the permissions after a rebuild. If the identity is missing, the script signs ad-hoc and prints a WARNING. Then you must allow the permissions again after each rebuild.
 
+You can put `LARYNX_SIGN_IDENTITY` and `LARYNX_BUNDLE_ID` (default `local.larynx`) in `local/build.env`. Both scripts read that file.
+
 ## Allow the permissions
 
 Do this one time, in System Settings, Privacy & Security.
@@ -78,6 +80,14 @@ The cleanup uses rules only. It removes fillers (um, uh, erm, hmm), fixes the sp
 1. Open `larynx.toml`.
 2. Change the line you need. For example, set `model = "parakeet-ultra"`.
 3. Run `larynx models fetch` if you changed the model.
+
+To keep your own settings apart from the defaults:
+
+1. Make a folder named `local` in this folder.
+2. Copy `larynx.toml`, `words.toml` and `styles.toml` into `local/`.
+3. Edit the copies. Larynx reads `local/` when it holds a `larynx.toml`. Git ignores `local/`.
+
+By default the mic stays open for 5 minutes after a dictation, so the next dictation keeps its first word. The orange mic dot shows during that time. Set `warm_mic_minutes = 0` in `larynx.toml` to close the mic after each dictation.
 
 ## Test
 

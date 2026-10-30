@@ -45,5 +45,7 @@ public struct Config: Sendable {
     public var maxHold: Double { values["max_hold_s"].flatMap(Double.init) ?? 120 }
     public var maxHandsFree: Double { values["max_handsfree_s"].flatMap(Double.init) ?? 600 }
     /// A recording whose loud parts stay under this (dBFS) is a silent mic: no paste.
+    /// Minutes the mic stays open after a dictation, so the next one keeps its first word. 0 = close at once.
+    public var warmMicMinutes: Double { values["warm_mic_minutes"].flatMap(Double.init) ?? 5 }
     public var silentBelowDB: Double { values["silent_below_db"].flatMap(Double.init) ?? -40 }
 }

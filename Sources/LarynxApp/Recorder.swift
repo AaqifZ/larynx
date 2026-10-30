@@ -5,8 +5,14 @@ import LarynxCore
 
 /// Microphone to 16 kHz mono Float32. Every chunk goes to the inflight CAF on disk
 /// and to memory for the live preview and the final transcription.
+///
+/// Warm mic (larynx.toml `warm_mic_minutes`, as Wispr Flow's sessions): after a dictation the mic
+/// stays open for that many minutes, keeping only the last 0.5 s in memory. The next press then
+/// starts at once with that 0.5 s in front, so the first word is kept. A cold mic takes 250 ms or
+/// more to give real audio (about 100 ms to open, then about 150 ms of muted start), which cut
+/// the first word. The macOS orange dot shows while the mic is warm.
 final class Recorder {
-    // A fresh engine per recording: one that outlives a mic change (a USB or wireless mic plugged in or out)
+    // A fresh engine for each cold start: one that outlives a mic change (a USB or wireless mic plugged in or out)
     // keeps running but delivers no audio, and leaves Larynx stuck on listening.
     private var engine = AVAudioEngine()
     private var converter: AVAudioConverter?
@@ -20,6 +26,15 @@ final class Recorder {
     private var startedAt: CFAbsoluteTime = 0
     private var heard = false
 
+    // Warm state. `recording`, `ring` and `lastAudio` are shared with the audio thread: use `lock`.
+    private static let preRoll = 8_000 // 0.5 s at 16 kHz
+    private var recording = false
+    private var ring: [Float] = []
+    private var lastAudio: CFAbsoluteTime = 0
+    private var running: AudioDeviceID? // the device of the engine that is open now
+    private var cool: Timer?
+    private var configObserver: NSObjectProtocol?
+
     var samples: [Float] { lock.lock(); defer { lock.unlock() }; return buffer }
 
     static func requestAccess(_ done: @escaping (Bool) -> Void) {
@@ -31,21 +46,45 @@ final class Recorder {
     }
 
     func start(writingTo url: URL) throws {
-        lock.lock(); buffer = []; lock.unlock()
-        startedAt = CFAbsoluteTimeGetCurrent(); heard = false
-        writer = try CafWriter(url: url)
-        engine = AVAudioEngine()
-        let input = engine.inputNode
+        cool?.invalidate(); cool = nil
+        startedAt = CFAbsoluteTimeGetCurrent(); heard = true
+        let w = try CafWriter(url: url)
         // larynx.toml `mic`: the first preferred microphone that is plugged in, else the macOS default.
         // The real name of the macOS default input, so the log shows AirPods or an iPhone, not "default".
         let preferred = Mics.pick(Config.load().mics)
         let fallback = Mics.defaultInput()
+        let device = (preferred ?? fallback)?.0
         micName = preferred?.1 ?? fallback.map { "default: \($0.1)" } ?? "default"
+
+        // Warm: same device, and audio came in the last 0.5 s (an engine that outlived a mic
+        // change can run with no audio). Start from the kept 0.5 s.
+        lock.lock()
+        let fresh = CFAbsoluteTimeGetCurrent() - lastAudio < 0.5
+        if let device, running == device, fresh {
+            buffer = ring; ring = []
+            w.append(buffer)
+            writer = w; recording = true
+            let kept = Double(buffer.count) / 16_000
+            lock.unlock()
+            NSLog("larynx: mic warm (%@), started with %.2f s from before the key", micName, kept)
+            return
+        }
+        lock.unlock()
+
+        shutDown()
+        lock.lock(); buffer = []; ring = []; writer = w; recording = true; heard = false; lock.unlock()
+        do { try open(device) } catch { shutDown(); w.close(); throw error }
+        NSLog("larynx: mic open after %.0f ms", (CFAbsoluteTimeGetCurrent() - startedAt) * 1000)
+    }
+
+    private func open(_ device: AudioDeviceID?) throws {
+        engine = AVAudioEngine()
+        let input = engine.inputNode
         var format = input.outputFormat(forBus: 0)
         // Bind the device by id every time, the macOS default too. The node's format goes stale after
-        // a mic change or sleep (29 Oct: it said 44.1 kHz stereo for a 48 kHz mono Mac mic), and
+        // a mic change or sleep (it can say 44.1 kHz stereo for a 48 kHz mono mic), and
         // start() then fails with '!dev' (canPerformIO) on every press until Larynx restarts.
-        if let (id, _) = preferred ?? fallback, let unit = input.audioUnit {
+        if let id = device, let unit = input.audioUnit {
             var dev = id
             if AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
                                     &dev, UInt32(MemoryLayout<AudioDeviceID>.size)) == noErr {
@@ -70,17 +109,49 @@ final class Recorder {
         input.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buf, _ in self?.take(buf) }
         engine.prepare()
         try engine.start()
-        NSLog("larynx: mic open after %.0f ms", (CFAbsoluteTimeGetCurrent() - startedAt) * 1000)
+        running = device
+        // macOS changed the device under the engine: close it, so the next press starts cold.
+        configObserver = NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine,
+                                                                queue: .main) { [weak self] _ in self?.coolNow("mic changed") }
     }
 
-    /// Stops the mic and closes the file. Returns everything recorded.
+    /// Ends the recording and closes the file. Returns everything recorded. The mic stays open
+    /// (warm) for `warm_mic_minutes`, except a Bluetooth mic: an open one drops AirPods to call quality.
     func stop() -> [Float] {
+        lock.lock()
+        recording = false
+        let w = writer; writer = nil
+        let out = buffer
+        lock.unlock()
+        w?.close()
+        level = 0
+        let minutes = Config.load().warmMicMinutes
+        if minutes > 0, let id = running, !Mics.isBluetooth(id) {
+            cool = Timer.scheduledTimer(withTimeInterval: minutes * 60, repeats: false) { [weak self] _ in
+                self?.coolNow("warm time over")
+            }
+        } else {
+            shutDown()
+        }
+        return out
+    }
+
+    /// Closes a warm mic. Does nothing while recording. Called on sleep, screen lock and timeout.
+    func coolNow(_ why: String) {
+        lock.lock(); let busy = recording; lock.unlock()
+        guard !busy, running != nil else { return }
+        NSLog("larynx: mic closed (%@)", why)
+        shutDown()
+    }
+
+    private func shutDown() {
+        cool?.invalidate(); cool = nil
+        if let o = configObserver { NotificationCenter.default.removeObserver(o); configObserver = nil }
+        guard running != nil || engine.isRunning else { return }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
-        writer?.close()
-        writer = nil
-        level = 0
-        return samples
+        running = nil
+        lock.lock(); ring = []; lastAudio = 0; lock.unlock()
     }
 
     private func take(_ raw: AVAudioPCMBuffer) {
@@ -99,12 +170,23 @@ final class Recorder {
         }
         guard err == nil, let ch = out.floatChannelData, out.frameLength > 0 else { return }
         let chunk = Array(UnsafeBufferPointer(start: ch[0], count: Int(out.frameLength)))
-        writer?.append(chunk)
+        lock.lock()
+        lastAudio = CFAbsoluteTimeGetCurrent()
+        if recording {
+            writer?.append(chunk)
+            buffer += chunk
+        } else {
+            // Warm and idle: keep only the last 0.5 s, in memory.
+            ring += chunk
+            if ring.count > Recorder.preRoll { ring.removeFirst(ring.count - Recorder.preRoll) }
+        }
+        let live = recording
+        lock.unlock()
+        guard live else { return }
         var sum: Float = 0
         for s in chunk { sum += s * s }
         let rms = (sum / Float(chunk.count)).squareRoot()
         level = min(1, rms * 12)
-        lock.lock(); buffer += chunk; lock.unlock()
     }
 }
 
@@ -177,6 +259,15 @@ enum Mics {
     }
 
     static func channels(_ id: AudioDeviceID) -> Int { inputChannels(id) }
+
+    static func isBluetooth(_ id: AudioDeviceID) -> Bool {
+        var addr = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyTransportType, mScope: kAudioObjectPropertyScopeGlobal,
+                                              mElement: kAudioObjectPropertyElementMain)
+        var t: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(id, &addr, 0, nil, &size, &t) == noErr else { return false }
+        return t == kAudioDeviceTransportTypeBluetooth || t == kAudioDeviceTransportTypeBluetoothLE
+    }
 
     static func sampleRate(_ id: AudioDeviceID) -> Double {
         var addr = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyNominalSampleRate, mScope: kAudioObjectPropertyScopeGlobal,

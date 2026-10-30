@@ -13,13 +13,21 @@ public enum Paths {
     public static var models: URL { home.appendingPathComponent("models", isDirectory: true) }
 
     /// The folder that holds larynx.toml, words.toml and styles.toml.
-    /// `LARYNX_CONFIG_DIR` overrides; otherwise it is this repo, found from the source path at build time.
+    /// `LARYNX_CONFIG_DIR` overrides. Else the repo's `local/` folder, if it holds a larynx.toml:
+    /// your own settings, which git ignores. Else the defaults that ship in the repo.
     public static var config: URL {
         if let dir = ProcessInfo.processInfo.environment["LARYNX_CONFIG_DIR"], !dir.isEmpty {
             return URL(fileURLWithPath: dir, isDirectory: true)
         }
+        let local = defaults.appendingPathComponent("local", isDirectory: true)
+        if FileManager.default.fileExists(atPath: local.appendingPathComponent("larynx.toml").path) { return local }
+        return defaults
+    }
+
+    /// The repo, found from the source path at build time. Its .toml files are the shipped defaults.
+    public static var defaults: URL {
         // <repo>/Sources/LarynxCore/Paths.swift -> <repo>
-        return URL(fileURLWithPath: #filePath)
+        URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     }
 

@@ -1,3 +1,4 @@
+import AppKit
 import AVFoundation
 import Foundation
 import LarynxCore
@@ -110,7 +111,7 @@ do {
         [section]
         """)
     check(c["model"] == "parakeet-ultra" && c["key"] == "fn" && c["clean_deadline_s"] == "2", "config: reads strings, numbers, comments")
-    let repo = Config.load(from: Paths.config.appendingPathComponent("larynx.toml"))
+    let repo = Config.load(from: Paths.defaults.appendingPathComponent("larynx.toml"))
     check(repo.model == "parakeet-v3", "config: the repo's larynx.toml picks parakeet-v3")
 }
 
@@ -417,8 +418,8 @@ do {
 
 // the rules cleanup
 do {
-    let repoRules = Rules.parse(words: (try? String(contentsOf: Paths.config.appendingPathComponent("words.toml"), encoding: .utf8)) ?? "",
-                                styles: (try? String(contentsOf: Paths.config.appendingPathComponent("styles.toml"), encoding: .utf8)) ?? "")
+    let repoRules = Rules.parse(words: (try? String(contentsOf: Paths.defaults.appendingPathComponent("words.toml"), encoding: .utf8)) ?? "",
+                                styles: (try? String(contentsOf: Paths.defaults.appendingPathComponent("styles.toml"), encoding: .utf8)) ?? "")
     let cleaner = Cleaner(rules: repoRules)
     let plain = Style.plain
     func c(_ raw: String, _ style: Style = Style.plain) -> String { cleaner.clean(raw, style: style) }
@@ -654,6 +655,21 @@ do {
     check(kept.count == 2, "only the newest silent recordings are kept")
     unsetenv("LARYNX_HOME")
 }
+
+// Clipboard: the text stays on this Mac and out of clipboard managers.
+// A private named pasteboard, so the test never touches the user's clipboard.
+do {
+    let pb = NSPasteboard(name: NSPasteboard.Name("larynx-selftest-\(UUID().uuidString)"))
+    defer { pb.releaseGlobally() }
+    pb.clearContents()
+    pb.setString("old", forType: NSPasteboard.PasteboardType("public.html"))
+    try SystemClipboard(pb).write("the demo on Friday")
+    let types = pb.types ?? []
+    check(pb.string(forType: .string) == "the demo on Friday", "clipboard: the text is on the clipboard as .string for Cmd+V")
+    check(types.contains(SystemClipboard.transient), "clipboard: the write carries the Transient marker")
+    check(types.contains(SystemClipboard.concealed), "clipboard: the write carries the Concealed marker")
+    check(!types.contains(NSPasteboard.PasteboardType("public.html")), "clipboard: the old contents are cleared")
+} catch { check(false, "clipboard write threw \(error)") }
 
 print(failures == 0 ? "\nall passed" : "\n\(failures) failed")
 exit(failures == 0 ? 0 : 1)

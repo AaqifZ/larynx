@@ -43,6 +43,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         pill.levelSource = { [recorder] in recorder.level }
+        // A warm mic closes when the Mac sleeps or the screen locks; the next press starts cold.
+        let ws = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.willSleepNotification, NSWorkspace.screensDidSleepNotification] {
+            ws.addObserver(forName: name, object: nil, queue: .main) { [recorder] _ in recorder.coolNow("sleep") }
+        }
+        DistributedNotificationCenter.default().addObserver(forName: .init("com.apple.screenIsLocked"), object: nil, queue: .main) {
+            [recorder] _ in recorder.coolNow("screen locked")
+        }
 
         // Leftovers from a run that died. Taken now, before any new recording can start.
         let leftovers = Inflight.leftovers()

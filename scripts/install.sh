@@ -1,11 +1,12 @@
 #!/bin/zsh
-# Starts Larynx at login: installs ~/Library/LaunchAgents/local.larynx.plist
+# Starts Larynx at login: installs ~/Library/LaunchAgents/<bundle id>.plist (local.larynx by default)
 # pointing at dist/Larynx.app, then loads it. Run it after you allow the permissions.
 set -euo pipefail
 cd "${0:A:h:h}"
+[[ -f local/build.env ]] && source local/build.env
 app="$PWD/dist/Larynx.app"
 [[ -d "$app" ]] || { echo "Run scripts/build.sh first."; exit 1; }
-label="local.larynx"
+label="${LARYNX_BUNDLE_ID:-local.larynx}"
 plist="$HOME/Library/LaunchAgents/$label.plist"
 mkdir -p "$HOME/Library/LaunchAgents" "$HOME/.larynx"
 cat > "$plist" <<PLIST

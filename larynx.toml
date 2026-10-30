@@ -37,3 +37,10 @@ mic = ""
 # Larynx then pastes nothing, shows "Mic is silent", and keeps the audio in ~/.larynx/silent/.
 # Every recording logs its level in ~/.larynx/larynx.log ("outcome ... loud=-24dB"); tune from that.
 silent_below_db = -40
+
+# Warm mic: after a dictation the mic stays open this many minutes.
+# The next dictation then keeps its first word: it starts with the 0.5 s before you pressed fn.
+# That 0.5 s is held in memory only and is thrown away unless you dictate. The orange mic dot
+# shows while the mic is warm. 0 closes the mic after each dictation (the first word can clip).
+# A Bluetooth mic (AirPods) is never kept warm. Sleep and screen lock close the mic.
+warm_mic_minutes = 5

@@ -1,4 +1,8 @@
+docs/explainer/*.png
+docs/explainer/.preview.html
+docs/explainer/.figcheck.html
 .build/
 .swiftpm/
 *.wav
 dist/
+local/

@@ -6,12 +6,18 @@ public protocol Clipboard {
     func write(_ text: String) throws
 }
 
+/// Nothing leaves the Mac: the text stays off Universal Clipboard, and the
+/// nspasteboard.org markers tell clipboard managers not to keep it. Cmd+V reads `.string`.
 public struct SystemClipboard: Clipboard {
-    public init() {}
+    public static let transient = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
+    public static let concealed = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
+    let pb: NSPasteboard
+    public init(_ pb: NSPasteboard = .general) { self.pb = pb }
     public func write(_ text: String) throws {
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        guard pb.setString(text, forType: .string) else { throw HandOverError.clipboard }
+        pb.prepareForNewContents(with: .currentHostOnly) // also clears the old contents
+        guard pb.setString(text, forType: .string),
+              pb.setString("", forType: Self.transient),
+              pb.setString("", forType: Self.concealed) else { throw HandOverError.clipboard }
     }
 }
 

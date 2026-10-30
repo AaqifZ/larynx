@@ -1,0 +1,46 @@
+# styles.toml: how the clean copy reads in each app.
+# Larynx picks the style from the front app's bundle id only, never the window or screen.
+# Find an app's bundle id with: osascript -e 'id of app "Slack"'
+#
+# Each [style.<name>] has:
+#   apps          bundle ids that get this style
+#   first_letter  "lower" (keeps I and words.toml names), "upper", or "keep"
+#   final_period  "drop" (removes one final period, never ? or !), "keep", or "ensure" (adds a
+#                 full stop when the text ends without one)
+#
+# Every style drops fillers (um, uh, erm, hmm, mm) and stutters ("the the") and fixes
+# words.toml spellings. Changes apply to the next dictation, with no restart.
+
+# The style for any app not listed below.
+default = "default"
+
+[style.default]
+first_letter = "upper"
+final_period = "ensure"
+
+[style.chat]
+apps = [
+  "com.tinyspeck.slackmacgap",      # Slack
+  "com.apple.MobileSMS",            # Messages
+  "net.whatsapp.WhatsApp",          # WhatsApp
+  "desktop.WhatsApp",               # WhatsApp (older build)
+  "com.anthropic.claudefordesktop", # Claude
+  "com.hnc.Discord",                # Discord
+]
+first_letter = "upper"
+final_period = "ensure"
+
+[style.mail]
+apps = ["com.apple.mail"]
+first_letter = "upper"
+final_period = "ensure"
+
+[style.plain]
+apps = [
+  "dev.zed.Zed",                    # Zed
+  "com.apple.Terminal",             # Terminal
+  "com.googlecode.iterm2",          # iTerm
+  "com.mitchellh.ghostty",          # Ghostty
+]
+first_letter = "keep"
+final_period = "keep"

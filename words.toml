@@ -1,0 +1,75 @@
+# words.toml: words Larynx must spell your way.
+#
+# Each [[word]] entry has:
+#   spell          the right spelling. Larynx writes exactly this.
+#   sounds_like    what the speech model writes instead (optional). Whole words, any case.
+#                  Several words are fine ("chat gpt"). The longest match wins.
+#   unless_after   if the word just before is one of these, leave it alone (optional).
+#   unless_before  if the word just after is one of these, leave it alone (optional).
+#   note           for you; Larynx ignores it.
+#
+# The guards stop a blind find-and-replace: "ask clawed to fix it" becomes
+# "ask Claude to fix it", but "the cat clawed the sofa" stays as it is.
+# Larynx never changes text inside a URL or a file path.
+# Changes apply to the next dictation, with no restart. Or run:
+#   larynx words add <Word> --sounds-like "<a>" "<b>"
+#
+# Add your own name, your team, your products and your tools here.
+
+[[word]]
+spell = "Claude"
+sounds_like = ["clawed", "claud"]
+unless_after = ["cat", "cats", "dog", "dogs", "bear", "bears", "it", "he", "she", "they", "had", "was", "were", "kitten", "lion", "tiger"]
+unless_before = ["at", "through", "into", "back", "its", "his", "her", "their", "open", "up", "away", "out"]
+note = "the AI from Anthropic"
+
+[[word]]
+spell = "Claude Code"
+sounds_like = ["cloud code", "claude code", "clawed code", "claud code"]
+note = "heard as 'cloud code'"
+
+[[word]]
+spell = "ChatGPT"
+sounds_like = ["chat gpt", "chat gbd", "jet gpt", "chatgpt"]
+note = "OpenAI's chat app"
+
+[[word]]
+spell = "GitHub"
+sounds_like = ["git hub", "github", "get hub"]
+note = "code hosting"
+
+[[word]]
+spell = "MCP"
+sounds_like = ["m c p", "m.c.p.", "mcp", "em cee pee"]
+note = "Model Context Protocol"
+
+[[word]]
+spell = "Larynx"
+sounds_like = ["larinks", "larynx", "lorinx"]
+note = "this tool"
+
+[[word]]
+spell = "Parakeet"
+sounds_like = ["parakeet", "para keet"]
+unless_after = ["pet", "green", "little", "blue", "yellow"]
+note = "the speech model family"
+
+[[word]]
+spell = "FluidAudio"
+sounds_like = ["fluid audio", "fluidaudio"]
+note = "Larynx's speech engine"
+
+[[word]]
+spell = "Handy"
+unless_after = ["a", "in", "very", "so", "really", "quite", "pretty", "too", "more", "most", "is", "was", "are", "be", "been", "being", "that's", "it's", "comes", "come", "came", "coming", "super", "real", "extremely", "how", "not", "kinda"]
+note = "the open-source dictation app; 'handy' the adjective stays"
+
+[[word]]
+spell = "Wispr Flow"
+sounds_like = ["whisper flow", "whisperflow", "wisper flow", "wispr flow"]
+note = "the paid dictation app; bare 'whisper' is a real word and stays"
+
+[[word]]
+spell = "Wispr"
+sounds_like = ["wisper"]
+note = "the company behind Wispr Flow"

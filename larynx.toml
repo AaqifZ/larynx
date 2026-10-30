@@ -1,0 +1,39 @@
+# larynx.toml: how Larynx listens and which speech model it uses.
+# Edit this file to change a setting. There is no settings window.
+
+# Hold this key to dictate.
+key = "fn"
+
+# Hands-free: press fn with control once, talk, then press fn to stop.
+# Tapping fn twice quickly does the same.
+# On a keyboard with no fn key, tap control+shift alone: once to start, once to stop.
+# It acts on release, so control+shift+key shortcuts never start a recording.
+handsfree_key = "fn+control"
+
+# Hold this to get raw text: no cleanup at all.
+raw_key = "fn+shift"
+
+# The speech model. One line swaps it. Known today:
+#   parakeet-v3     the default
+#   parakeet-ultra  retrained v3, fewer errors, same speed
+#   parakeet-v2     English only
+# After a change, run `larynx models fetch` once to download the new model.
+model = "parakeet-v3"
+
+# If the clean copy is not ready this many seconds after you let go, the raw text lands.
+clean_deadline_s = 2
+
+# A recording ends by itself after this many seconds, and its text lands as normal.
+# This stops a missed fn release from leaving Larynx stuck on "listening".
+max_hold_s = 120
+max_handsfree_s = 600
+
+# Microphones to use, in order, by part of their name, separated by commas.
+# The first one plugged in wins. If none is plugged in, or this is empty,
+# Larynx uses the macOS default input.
+mic = ""
+
+# A recording whose loudest parts stay under this level (dBFS) is a silent mic.
+# Larynx then pastes nothing, shows "Mic is silent", and keeps the audio in ~/.larynx/silent/.
+# Every recording logs its level in ~/.larynx/larynx.log ("outcome ... loud=-24dB"); tune from that.
+silent_below_db = -40

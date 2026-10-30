@@ -28,6 +28,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var startupError: String?
 
     func applicationDidFinishLaunching(_ note: Notification) {
+        if LogFile.rotate() { NSLog("larynx: larynx.log passed 5 MB; the old log is larynx.log.1") }
+        Silent.prune()
         setUpMenu()
         let config = Config.load()
         limits = (config.maxHold, config.maxHandsFree)
@@ -387,7 +389,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return out
     }
 
-    // MARK: debug feed (LARYNX_DEBUG=1 only)
+    // MARK: debug feed (debug build with LARYNX_DEBUG=1 only)
 
     private func debug(_ req: Data) async -> Data {
         func json<T: Encodable>(_ v: T) -> Data { Data(((try? JSON.render(v)) ?? JSON.error("encode")).utf8).compactJSON }
@@ -423,7 +425,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
                 writer.close()
                 return json(await finish(samples: samples, id: id, file: file, raw: obj["raw"] == "true",
-                                         paste: obj["paste"] != "false", app: obj["app"]))
+                                         paste: obj["paste"] == "true", app: obj["app"]))
             } catch { return json(["error": "\(error)"]) }
         default:
             return json(["error": "unknown cmd"])

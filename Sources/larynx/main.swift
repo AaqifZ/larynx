@@ -18,10 +18,14 @@ let usage = """
       larynx stats [--json]                     median and p95 of transcribe_ms and clean_ms, today and 7 days
       larynx status [--json]                    model, files, counts
       larynx models fetch [--json]              download the speech model (the only network use)
-      larynx debug feed <wav> [--raw] [--stream] [--no-paste] [--app <bundle id>] [--json]
-                                                run a WAV through the running app's pipeline (app launched with LARYNX_DEBUG=1)
+      larynx debug feed <wav> [--raw] [--stream] [--paste] [--app <bundle id>] [--json]
+                                                run a WAV through the running app's pipeline (a debug build
+                                                launched with LARYNX_DEBUG=1); posts Cmd+V only with --paste
       larynx debug state [--json]               the running app's state (same condition)
     """
+
+// The CLI holds no TCC grants, so LARYNX_HOME and LARYNX_CONFIG_DIR are safe to honour here.
+Paths.trustsEnvironment = true
 
 let asJSON = CommandLine.arguments.contains("--json")
 let args = CommandLine.arguments.dropFirst().filter { $0 != "--json" }
@@ -226,7 +230,7 @@ func seconds(since t: DispatchTime) -> Double {
             req["wav"] = wav.path
             req["raw"] = args.contains("--raw") ? "true" : "false"
             req["stream"] = args.contains("--stream") ? "true" : "false"   // real-time pace, for the crash test
-            req["paste"] = args.contains("--no-paste") ? "false" : "true"  // decide, but never post Cmd+V
+            req["paste"] = args.contains("--paste") ? "true" : "false"  // without it: decide, but never post Cmd+V
             if let app = option("--app", in: args) { req["app"] = app }     // pretend this app is in front (style probes)
         }
         let reply = try DebugChannel.request(try JSONSerialization.data(withJSONObject: req))

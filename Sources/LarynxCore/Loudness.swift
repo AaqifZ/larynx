@@ -45,24 +45,30 @@ public struct Loudness: Sendable {
     }
 }
 
-/// Recordings judged silent, kept in ~/.larynx/silent/ (newest 20) so a wrong threshold loses
-/// nothing: `larynx transcribe ~/.larynx/silent/<id>.caf` gets the words back.
+/// Recordings judged silent, kept in ~/.larynx/silent/ (newest 20, none older than the
+/// history's 30 days) so a wrong threshold loses nothing:
+/// `larynx transcribe ~/.larynx/silent/<id>.caf` gets the words back.
 public enum Silent {
     public static var dir: URL { Paths.home.appendingPathComponent("silent", isDirectory: true) }
 
-    public static func keep(_ file: URL, limit: Int = 20) {
+    public static func keep(_ file: URL, limit: Int = 20, now: Date = Date()) {
         let fm = FileManager.default
         guard fm.fileExists(atPath: file.path) else { return }
         try? Paths.ensurePrivateDir(dir)
         let dest = dir.appendingPathComponent(file.lastPathComponent)
         try? fm.removeItem(at: dest)
         if (try? fm.moveItem(at: file, to: dest)) == nil { try? fm.removeItem(at: file) }
+        prune(limit: limit, now: now)
+    }
+
+    /// Deletes all but the newest `limit` recordings, and any older than `days`. Also run at launch,
+    /// so audio never outlives its text when no new silent recording comes along.
+    public static func prune(limit: Int = 20, now: Date = Date(), days: Int = History.retentionDays) {
+        let fm = FileManager.default
+        let cutoff = now.addingTimeInterval(-Double(days) * 86_400)
+        let created: (URL) -> Date = { (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast }
         let kept = ((try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.creationDateKey])) ?? [])
-            .sorted {
-                let a = (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
-                let b = (try? $1.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
-                return a > b
-            }
-        for old in kept.dropFirst(limit) { try? fm.removeItem(at: old) }
+            .sorted { created($0) > created($1) }
+        for (i, f) in kept.enumerated() where i >= limit || created(f) < cutoff { try? fm.removeItem(at: f) }
     }
 }

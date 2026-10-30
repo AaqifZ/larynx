@@ -87,19 +87,21 @@ Larynx keeps history in `~/.larynx/history.db`. It deletes rows older than 30 da
 
 ## Change a setting
 
+Your settings are in `~/.larynx/`: `larynx.toml`, `words.toml` and `styles.toml`. On the first run, Larynx copies the defaults from this folder into `~/.larynx/`. It never replaces a file that is already there, so a `git pull` does not change your settings. Larynx skips a `words.toml` entry that holds a control character, such as `\n` or `\t`, and writes the entry to `~/.larynx/larynx.log`.
+
 Larynx reads `words.toml` and `styles.toml` again at the next dictation after you save them. You do not restart Larynx.
 
 The cleanup uses rules only. It removes fillers (um, uh, erm, hmm), fixes the spellings in `words.toml`, and applies the style for the front app from `styles.toml`. Hold fn and shift to skip the cleanup.
 
-1. Open `larynx.toml`.
+1. Open `~/.larynx/larynx.toml`.
 2. Change the line you need. For example, set `model = "parakeet-ultra"`.
 3. Run `larynx models fetch` if you changed the model.
 
-To keep your own settings apart from the defaults:
+To keep your settings in this folder instead (for development):
 
 1. Make a folder named `local` in this folder.
 2. Copy `larynx.toml`, `words.toml` and `styles.toml` into `local/`.
-3. Edit the copies. Larynx reads `local/` when it holds a `larynx.toml`. Git ignores `local/`.
+3. Edit the copies. Larynx reads `local/` in place of `~/.larynx/` when `local/` holds a `larynx.toml`. Git ignores `local/`.
 
 By default the mic stays open for 5 minutes after a dictation, so the next dictation keeps its first word. The orange mic dot shows during that time. Set `warm_mic_minutes = 0` in `larynx.toml` to close the mic after each dictation.
 
@@ -113,10 +115,11 @@ The test uses a temporary history. The test saves the clipboard text and puts it
 ## Test the app without a microphone
 
 1. Quit the normal Larynx. Two copies both listen to fn.
-2. Start the app in debug mode with a short temporary home (socket paths have a length limit): `LARYNX_DEBUG=1 LARYNX_HOME=~/.lxp dist/Larynx.app/Contents/MacOS/Larynx &`. Link `~/.larynx/models` into it.
-3. Run `dist/larynx debug feed <file.wav> --no-paste`. Add `--app <bundle id>` to test a style.
-4. Read the JSON reply. It shows the text, `landed`, the style and the times.
-5. Stop the debug app. Start the normal app from a clean environment: `env -u LARYNX_HOME -u LARYNX_CONFIG_DIR open dist/Larynx.app`.
+2. Build the debug app: `swift build --product LarynxApp`. The release app in `dist/` ignores the debug variables.
+3. Start the debug app with a short temporary home (socket paths have a length limit): `LARYNX_DEBUG=1 LARYNX_HOME=~/.lxp .build/debug/LarynxApp &`. Link `~/.larynx/models` into it.
+4. Run `LARYNX_HOME=~/.lxp dist/larynx debug feed <file.wav>`. Add `--app <bundle id>` to test a style. Add `--paste` to post Cmd+V.
+5. Read the JSON reply. It shows the text, `landed`, the style and the times.
+6. Stop the debug app. Start the normal app from a clean environment: `env -u LARYNX_HOME -u LARYNX_CONFIG_DIR open dist/Larynx.app`.
 
 WARNING: Clear `LARYNX_HOME` and `LARYNX_CONFIG_DIR` before you use `open`. `open` gives your shell environment to the app, and the app then writes to the wrong folder.
 

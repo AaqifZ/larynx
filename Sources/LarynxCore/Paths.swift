@@ -2,10 +2,18 @@ import Foundation
 
 /// Where Larynx keeps its files. `LARYNX_HOME` moves everything (tests use a temp dir).
 public enum Paths {
+    /// Whether `LARYNX_HOME` and `LARYNX_CONFIG_DIR` count. Off by default: the release app holds
+    /// TCC grants, and any process of this user can set its environment (`launchctl setenv`).
+    /// The CLI, the self-test and the debug build of the app turn it on at startup.
+    nonisolated(unsafe) public static var trustsEnvironment = false
+
+    static func override(_ name: String) -> URL? {
+        guard trustsEnvironment, let dir = ProcessInfo.processInfo.environment[name], !dir.isEmpty else { return nil }
+        return URL(fileURLWithPath: dir, isDirectory: true)
+    }
+
     public static var home: URL {
-        if let dir = ProcessInfo.processInfo.environment["LARYNX_HOME"], !dir.isEmpty {
-            return URL(fileURLWithPath: dir, isDirectory: true)
-        }
+        if let dir = override("LARYNX_HOME") { return dir }
         return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".larynx", isDirectory: true)
     }
 
@@ -13,15 +21,30 @@ public enum Paths {
     public static var models: URL { home.appendingPathComponent("models", isDirectory: true) }
 
     /// The folder that holds larynx.toml, words.toml and styles.toml.
-    /// `LARYNX_CONFIG_DIR` overrides. Else the repo's `local/` folder, if it holds a larynx.toml:
-    /// your own settings, which git ignores. Else the defaults that ship in the repo.
+    /// `LARYNX_CONFIG_DIR` overrides when trusted. Else the repo's `local/` folder, if it holds a larynx.toml:
+    /// your own settings, which git ignores. Else ~/.larynx (`home`), never the clone itself,
+    /// so a `git pull` cannot change what Larynx pastes. See `seedConfig`.
     public static var config: URL {
-        if let dir = ProcessInfo.processInfo.environment["LARYNX_CONFIG_DIR"], !dir.isEmpty {
-            return URL(fileURLWithPath: dir, isDirectory: true)
-        }
+        if let dir = override("LARYNX_CONFIG_DIR") { return dir }
         let local = defaults.appendingPathComponent("local", isDirectory: true)
         if FileManager.default.fileExists(atPath: local.appendingPathComponent("larynx.toml").path) { return local }
-        return defaults
+        seedConfig(into: home)
+        return home
+    }
+
+    public static let configFiles = ["larynx.toml", "words.toml", "styles.toml"]
+
+    /// Copies each shipped default the folder is missing, once. A file already there is yours
+    /// and is never replaced, so later changes to the repo's defaults do not reach it.
+    public static func seedConfig(into dir: URL, from source: URL = defaults) {
+        let fm = FileManager.default
+        try? ensurePrivateDir(dir)
+        for name in configFiles {
+            let to = dir.appendingPathComponent(name)
+            guard !fm.fileExists(atPath: to.path) else { continue }
+            let from = source.appendingPathComponent(name)
+            if fm.fileExists(atPath: from.path) { try? fm.copyItem(at: from, to: to) }
+        }
     }
 
     /// The repo, found from the source path at build time. Its .toml files are the shipped defaults.
@@ -32,8 +55,10 @@ public enum Paths {
     }
 
     /// Makes a private folder (0700): dictation text is personal.
+    /// A folder that already exists is set to 0700 too, whatever made it.
     public static func ensurePrivateDir(_ url: URL) throws {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true,
                                                 attributes: [.posixPermissions: 0o700])
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
     }
 }

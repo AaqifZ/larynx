@@ -65,12 +65,21 @@ public struct Rules: Sendable {
         return Style(name: defaultStyle, firstLetter: .upper, finalPeriod: .keep)
     }
 
-    public static func parseWords(_ text: String) -> [WordEntry] {
+    /// The [[word]] entries. An entry whose spell or sounds_like holds a control character
+    /// (a "\n" or "\t" escape) is skipped and passed to `skipped`: the cleaner pastes spell
+    /// verbatim, so a newline in it would press Return in the front app.
+    public static func parseWords(_ text: String, skipped: ((String) -> Void)? = nil) -> [WordEntry] {
         TOMLDoc.parse(text).arrays["word", default: []].compactMap { t in
             guard let spell = t["spell"]?.string?.trimmingCharacters(in: .whitespaces), !spell.isEmpty else { return nil }
-            return WordEntry(spell: spell, soundsLike: t["sounds_like"]?.list ?? [],
+            let sounds = t["sounds_like"]?.list ?? []
+            if ([spell] + sounds).contains(where: hasControl) { skipped?(spell); return nil }
+            return WordEntry(spell: spell, soundsLike: sounds,
                              unlessAfter: t["unless_after"]?.list ?? [], unlessBefore: t["unless_before"]?.list ?? [])
         }
+    }
+
+    static func hasControl(_ s: String) -> Bool {
+        s.unicodeScalars.contains { $0.properties.generalCategory == .control }
     }
 
     public static func parseStyles(_ text: String) -> (styles: [String: Style], apps: [String: String], defaultStyle: String) {
@@ -87,9 +96,9 @@ public struct Rules: Sendable {
         return (styles, apps, doc.root["default"]?.string ?? "default")
     }
 
-    public static func parse(words: String, styles: String) -> Rules {
+    public static func parse(words: String, styles: String, skipped: ((String) -> Void)? = nil) -> Rules {
         let s = parseStyles(styles)
-        return Rules(words: parseWords(words), styles: s.styles, appStyle: s.apps, defaultStyle: s.defaultStyle)
+        return Rules(words: parseWords(words, skipped: skipped), styles: s.styles, appStyle: s.apps, defaultStyle: s.defaultStyle)
     }
 }
 
@@ -122,7 +131,12 @@ public final class RulesStore {
         if let c = cachedCleaner, now == stamps { return c }
         let w = (try? String(contentsOf: wordsFile, encoding: .utf8)) ?? ""
         let s = (try? String(contentsOf: stylesFile, encoding: .utf8)) ?? ""
-        let rules = Rules.parse(words: w, styles: s)
+        var skipped: [String] = []
+        let rules = Rules.parse(words: w, styles: s) { skipped.append($0) }
+        if !skipped.isEmpty {
+            // %@, not interpolation: a spell may hold a % that NSLog would read as a format.
+            NSLog("%@", "larynx: words.toml: skipped \(skipped.count) [[word]] with a control character (newline or tab): \(skipped.debugDescription)")
+        }
         let c = Cleaner(rules: rules)
         cached = rules
         cachedCleaner = c

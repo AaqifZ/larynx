@@ -7,6 +7,7 @@ import SQLite3
 // Tests without XCTest (CLT-only machine): `swift run LarynxSelfTest`.
 
 var failures = 0
+Paths.trustsEnvironment = true
 func check(_ ok: Bool, _ name: String) {
     print("\(ok ? "PASS" : "FAIL")  \(name)")
     if !ok { failures += 1 }
@@ -416,6 +417,23 @@ do {
 } catch { check(false, "inflight threw \(error)") }
 
 
+// words.toml: an entry with a control character never reaches the cleaner
+do {
+    var skipped: [String] = []
+    let words = Rules.parseWords("""
+        [[word]]
+        spell = "rm -rf\\n"
+        [[word]]
+        spell = "Larynx"
+        sounds_like = ["lar\\tinks"]
+        [[word]]
+        spell = "Claude"
+        sounds_like = ["clawed"]
+        """) { skipped.append($0) }
+    check(words.map(\.spell) == ["Claude"], "words.toml: entries with \\n or \\t in spell or sounds_like are skipped")
+    check(skipped == ["rm -rf\n", "Larynx"], "words.toml: skipped entries are reported")
+}
+
 // the rules cleanup
 do {
     let repoRules = Rules.parse(words: (try? String(contentsOf: Paths.defaults.appendingPathComponent("words.toml"), encoding: .utf8)) ?? "",
@@ -653,6 +671,44 @@ do {
     }
     let kept = (try? FileManager.default.contentsOfDirectory(atPath: Silent.dir.path)) ?? []
     check(kept.count == 2, "only the newest silent recordings are kept")
+    let aged = Silent.dir.appendingPathComponent("aged.caf")
+    FileManager.default.createFile(atPath: aged.path, contents: Data([1]))
+    try? FileManager.default.setAttributes([.creationDate: now.addingTimeInterval(-31 * 86_400)], ofItemAtPath: aged.path)
+    Silent.prune(limit: 20)
+    let left = (try? FileManager.default.contentsOfDirectory(atPath: Silent.dir.path)) ?? []
+    check(!left.contains("aged.caf") && left.count == 2, "a silent recording older than 30 days is deleted, the rest stay")
+
+    // Folders are 0700 even when something else made them first.
+    let loose = tmp.appendingPathComponent("loose-dir")
+    try? FileManager.default.createDirectory(at: loose, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o755])
+    try? Paths.ensurePrivateDir(loose)
+    let mode = (try? FileManager.default.attributesOfItem(atPath: loose.path)[.posixPermissions] as? Int) ?? nil
+    check(mode == 0o700, "ensurePrivateDir sets an existing 0755 folder to 0700")
+
+    // Config: with no local/ folder, Larynx reads ~/.larynx, seeded once from the shipped defaults.
+    let seeded = tmp.appendingPathComponent("seed-home")
+    Paths.seedConfig(into: seeded)
+    let seededNames = (try? FileManager.default.contentsOfDirectory(atPath: seeded.path)) ?? []
+    check(Paths.configFiles.allSatisfy(seededNames.contains), "config: the shipped defaults are copied in on first run")
+    let mine = seeded.appendingPathComponent("words.toml")
+    try? "# mine\n".write(to: mine, atomically: true, encoding: .utf8)
+    Paths.seedConfig(into: seeded)
+    check((try? String(contentsOf: mine, encoding: .utf8)) == "# mine\n", "config: a file already there is never replaced")
+
+    // larynx.log: past the limit it moves to larynx.log.1 and the fd writes a fresh 0600 file.
+    let log = tmp.appendingPathComponent("silent-home/larynx.log")
+    FileManager.default.createFile(atPath: log.path, contents: Data(count: 2_000), attributes: [.posixPermissions: 0o644])
+    let fd = open(log.path, O_WRONLY | O_APPEND)
+    check(!LogFile.rotate(maxBytes: 5_000, fd: fd, at: log), "a log under the limit stays")
+    let logMode = (try? FileManager.default.attributesOfItem(atPath: log.path)[.posixPermissions] as? Int) ?? nil
+    check(logMode == 0o600, "the log is set to 0600")
+    check(LogFile.rotate(maxBytes: 1_000, fd: fd, at: log), "a log over the limit rotates")
+    _ = "after".withCString { write(fd, $0, 5) }
+    close(fd)
+    check((try? Data(contentsOf: log)) == Data("after".utf8)
+          && (try? Data(contentsOf: URL(fileURLWithPath: log.path + ".1")))?.count == 2_000,
+          "the old log is larynx.log.1 and new lines go to a fresh larynx.log")
+    check(!LogFile.rotate(maxBytes: 1, fd: STDERR_FILENO, at: log), "a log that is not our stderr is left alone")
     unsetenv("LARYNX_HOME")
 }
 
@@ -670,6 +726,58 @@ do {
     check(types.contains(SystemClipboard.concealed), "clipboard: the write carries the Concealed marker")
     check(!types.contains(NSPasteboard.PasteboardType("public.html")), "clipboard: the old contents are cleared")
 } catch { check(false, "clipboard write threw \(error)") }
+
+// Debug variables: the release app ignores its environment; the debug socket refuses idle and huge clients.
+do {
+    let short = URL(fileURLWithPath: "/tmp/lx-\(UUID().uuidString.prefix(8))")
+    defer { try? FileManager.default.removeItem(at: short) }
+    Paths.trustsEnvironment = false
+    setenv("LARYNX_HOME", short.path, 1)
+    setenv("LARYNX_CONFIG_DIR", short.path, 1)
+    setenv("LARYNX_DEBUG", "1", 1)
+    // Untrusted `config` would fall back to (and seed) the real ~/.larynx, so only `home` is read here;
+    // both go through the same `override`.
+    check(!Paths.home.path.hasPrefix(short.path), "debug env: untrusted, LARYNX_HOME is ignored")
+    check(!DebugChannel.enabled, "debug env: untrusted, LARYNX_DEBUG does not open the debug socket")
+    Paths.trustsEnvironment = true
+    check(Paths.home.path == short.path && Paths.config.path == short.path && DebugChannel.enabled,
+          "debug env: trusted (CLI, debug build), the variables count")
+    unsetenv("LARYNX_CONFIG_DIR")
+    unsetenv("LARYNX_DEBUG")
+
+    func connectRaw() -> Int32 {
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        withUnsafeMutableBytes(of: &addr.sun_path) { raw in
+            for (i, b) in Array(DebugChannel.path.path.utf8).enumerated() { raw[i] = b }
+        }
+        _ = withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
+        }
+        return fd
+    }
+    do {
+        try DebugChannel.serve { req, reply in reply(req) }
+        let idle = connectRaw() // connects and sends nothing
+        defer { close(idle) }
+        let t0 = Date()
+        let echo = try? DebugChannel.request(Data("{\"cmd\":\"state\"}".utf8), timeout: 3)
+        check(echo == Data("{\"cmd\":\"state\"}".utf8) && Date().timeIntervalSince(t0) < 2,
+              "debug socket: an idle client does not block the next one")
+        let big = connectRaw()
+        defer { close(big) }
+        var tv = timeval(tv_sec: 3, tv_usec: 0)
+        setsockopt(big, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+        var on: Int32 = 1
+        setsockopt(big, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
+        let chunk = [UInt8](repeating: 0x61, count: 80 * 1024)
+        _ = chunk.withUnsafeBytes { write(big, $0.baseAddress!, $0.count) }
+        var byte: UInt8 = 0
+        check(read(big, &byte, 1) <= 0, "debug socket: a request over 64 KB is dropped without a reply")
+    } catch { check(false, "debug socket: \(error)") }
+    unsetenv("LARYNX_HOME")
+}
 
 print(failures == 0 ? "\nall passed" : "\n\(failures) failed")
 exit(failures == 0 ? 0 : 1)

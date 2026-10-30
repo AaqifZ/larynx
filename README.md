@@ -25,6 +25,20 @@ Set `LARYNX_SIGN_IDENTITY` to the name of a code-signing identity in your keycha
 
 You can put `LARYNX_SIGN_IDENTITY` and `LARYNX_BUNDLE_ID` (default `local.larynx`) in `local/build.env`. Both scripts read that file.
 
+### Protect the signing key
+
+Any process that can sign with the identity can make a binary that macOS treats as Larynx. That binary gets the permissions of Larynx with no prompt. Make the private key ask before each use:
+
+1. Open Keychain Access. Select the **login** keychain, then the **Keys** tab.
+2. Double-click the private key of the identity. Select the **Access Control** tab.
+3. Select **Confirm before allowing access**.
+4. Remove each application from the list "Always allow access by these applications".
+5. Select **Save Changes**.
+
+Each build then shows one prompt. Select **Allow** only for a build that you started. Do not select **Always Allow**.
+
+For more protection, keep the identity in a separate keychain. Unlock it with `security unlock-keychain` before a build, and lock it with `security lock-keychain` after the build.
+
 ## Allow the permissions
 
 Do this one time, in System Settings, Privacy & Security.

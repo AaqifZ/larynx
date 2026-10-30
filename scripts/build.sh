@@ -2,7 +2,7 @@
 # Builds dist/Larynx.app (menu bar app) and dist/larynx (CLI), then signs the app.
 # Signing: set LARYNX_SIGN_IDENTITY to a code-signing identity in your keychain so
 # permission grants survive rebuilds. Without it, the app is signed ad-hoc.
-# Make the identity's private key ask before each use (docs/signing.md).
+# Make the identity's private key ask before each use (README: Protect the signing key).
 # local/build.env, if present, sets LARYNX_SIGN_IDENTITY and LARYNX_BUNDLE_ID (git ignores local/).
 set -euo pipefail
 cd "${0:A:h:h}"

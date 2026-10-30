@@ -72,6 +72,10 @@ Do this one time. This is the only command that uses the network.
 2. Wait for the download to finish. It is about 480 MB.
 3. Find the model in `~/.larynx/models/`.
 
+The command downloads each model at a fixed Hugging Face commit. It then checks the sha256 of every file against `models.sha256`. If one file differs, the command deletes the new download and stops with an error.
+
+To check the model files again later, run `larynx models verify`. This command does not use the network.
+
 ## Run
 
 - Run `larynx transcribe <audio-file>` to change speech to text. Larynx saves the text in history first. Then it puts the text on the clipboard.

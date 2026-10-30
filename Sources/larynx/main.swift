@@ -18,6 +18,7 @@ let usage = """
       larynx stats [--json]                     median and p95 of transcribe_ms and clean_ms, today and 7 days
       larynx status [--json]                    model, files, counts
       larynx models fetch [--json]              download the speech model (the only network use)
+      larynx models verify [--json]             check the model files against the pinned sha256 manifest (offline)
       larynx debug feed <wav> [--raw] [--stream] [--paste] [--app <bundle id>] [--json]
                                                 run a WAV through the running app's pipeline (a debug build
                                                 launched with LARYNX_DEBUG=1); posts Cmd+V only with --paste
@@ -98,6 +99,15 @@ struct Fetched: Encodable {
     let dir: String
     let bytes: Int64
     let seconds: Double
+    let revision: String?
+}
+
+struct Verified: Encodable {
+    let model: String
+    let dir: String
+    let revision: String?
+    let ok: Bool
+    let problems: [String]
 }
 
 func seconds(since t: DispatchTime) -> Double {
@@ -213,12 +223,26 @@ func seconds(since t: DispatchTime) -> Double {
         }
 
     case "models":
-        guard args.count >= 2, args[1] == "fetch" else { throw CLIError("usage: larynx models fetch [--json]") }
         let model = try SpeechModel.named(config.model)
-        let t0 = DispatchTime.now()
-        try await model.fetch()
-        let f = Fetched(model: model.name, dir: model.directory.path, bytes: model.bytesOnDisk, seconds: seconds(since: t0))
-        try emit(f) { "\(f.model): \(f.bytes / 1_000_000) MB in \(f.dir)" }
+        switch args.dropFirst().first {
+        case "fetch":
+            let t0 = DispatchTime.now()
+            try await model.fetch()
+            let f = Fetched(model: model.name, dir: model.directory.path, bytes: model.bytesOnDisk,
+                            seconds: seconds(since: t0), revision: model.pin?.revision)
+            try emit(f) { "\(f.model): \(f.bytes / 1_000_000) MB in \(f.dir), every file matches the manifest" }
+        case "verify":
+            guard model.isPresent else { throw CLIError("speech model \(model.name) is not on this Mac: run larynx models fetch") }
+            let problems = try model.verify()
+            let v = Verified(model: model.name, dir: model.directory.path, revision: model.pin?.revision,
+                             ok: problems.isEmpty, problems: problems)
+            try emit(v) { v.ok ? "\(v.model): every file matches the manifest" : "\(v.model): MISMATCH\n  " + v.problems.joined(separator: "\n  ") }
+            if !v.ok { exit(1) }
+        case "manifest":
+            print(ModelManifest.text)   // scripts/test.sh checks it equals models.sha256
+        default:
+            throw CLIError("usage: larynx models fetch|verify [--json]")
+        }
 
     case "debug":
         guard args.count >= 2 else { throw CLIError("usage: larynx debug feed <wav> [--raw] | larynx debug state") }

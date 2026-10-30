@@ -1,0 +1,72 @@
+# Speech model files that `larynx models fetch` accepts.
+# "# pin <folder> <repo> <commit>" fixes the Hub commit each repo downloads at.
+# Every other line is "<sha256>  <folder>/<path>", as `shasum -a 256` prints it.
+# Check by hand: cd ~/.larynx/models && shasum -a 256 -c <this file> (pin lines are skipped).
+# pin parakeet-tdt-0.6b-v3 FluidInference/parakeet-tdt-0.6b-v3-coreml 7dd20fe6b1797d35f5e3307e8b1732d9a178edfe
+# pin parakeet-ultra FluidInference/parakeet-ultra-coreml 95eaa59a39d4394f047a4dc5cce480388a60d1b6
+# pin parakeet-tdt-0.6b-v2 FluidInference/parakeet-tdt-0.6b-v2-coreml ee09c569f73759e6d44c9bd16766f477b2b36d39
+4238c4e81ecd0dc94bd7dfbb60f7e2cc824107c1ffe0387b8607b72833dba350  parakeet-tdt-0.6b-v3/Decoder.mlmodelc/analytics/coremldata.bin
+18647af085d87bd8f3121c8a9b4d4564c1ede038dab63d295b4e745cf2d7fb99  parakeet-tdt-0.6b-v3/Decoder.mlmodelc/coremldata.bin
+a39e93cd8371b8ded92635c7804fcd0590f0d1dd9415c6d19a0484be073077d9  parakeet-tdt-0.6b-v3/Decoder.mlmodelc/metadata.json
+ef2a0a281695398a62fde86ac269c68f73d5b578d7ed3b31f2ba91a2d1ea1f35  parakeet-tdt-0.6b-v3/Decoder.mlmodelc/model.mil
+48adf0f0d47c406c8253d4f7fef967436a39da14f5a65e66d5a4b407be355d41  parakeet-tdt-0.6b-v3/Decoder.mlmodelc/weights/weight.bin
+42e638870d73f26b332918a3496ce36793fbb413a81cbd3d16ba01328637a105  parakeet-tdt-0.6b-v3/Encoder.mlmodelc/analytics/coremldata.bin
+d48034a167a82e88fc3df64f60af963ab3983538271175b8319e7d5720a0fb86  parakeet-tdt-0.6b-v3/Encoder.mlmodelc/coremldata.bin
+da24da9cca943fb29d7fa8e376d57fca7cb3aa08ca51b956b0b0e56813f087e9  parakeet-tdt-0.6b-v3/Encoder.mlmodelc/metadata.json
+ed7b19156ca29fa7dfd6891deb9fda4b0e8893f68597c985d135736546a43808  parakeet-tdt-0.6b-v3/Encoder.mlmodelc/model.mil
+e2020f323703477a5b21d7c2d282c403e371afb5962e79877e3033e73ba6f421  parakeet-tdt-0.6b-v3/Encoder.mlmodelc/weights/weight.bin
+26def4bf73dd56d29dee21c8ef97cb8969e62f6120ed1adc91e46828e2737b6c  parakeet-tdt-0.6b-v3/JointDecisionv3.mlmodelc/analytics/coremldata.bin
+f5fc08b741400f0088492c9e839418b1e18522f19cba28d361dd030c5f398342  parakeet-tdt-0.6b-v3/JointDecisionv3.mlmodelc/coremldata.bin
+d9307211b9a37e0f0ac260c7660b1571a3de25841035cfdf9b58fd40425f890f  parakeet-tdt-0.6b-v3/JointDecisionv3.mlmodelc/metadata.json
+be60732943389a047175111a83f8839f3eb39d4803adafa828a0871b2f39818d  parakeet-tdt-0.6b-v3/JointDecisionv3.mlmodelc/model.mil
+4e0e63d840032f7f07ddb1d64446051166281e5491bf22da8a945c41f6eedb3e  parakeet-tdt-0.6b-v3/JointDecisionv3.mlmodelc/weights/weight.bin
+c9beeb989c8d66f8be11df59bc6df277ec76cee404f6865b46243835ef562f6d  parakeet-tdt-0.6b-v3/Preprocessor.mlmodelc/analytics/coremldata.bin
+dbde3f2300842c1fd51ef3ff948a0bcffe65ffd2dca10707f2509f32c1d65b1d  parakeet-tdt-0.6b-v3/Preprocessor.mlmodelc/coremldata.bin
+2a98699e22d279dd37fa1d238aeb1c6db1df0d6fad687775324157689d8f3acf  parakeet-tdt-0.6b-v3/Preprocessor.mlmodelc/metadata.json
+4b8518a956450fec57f06c2a21bdffc26973f7f1fa6842fb38fe917f896b6b93  parakeet-tdt-0.6b-v3/Preprocessor.mlmodelc/model.mil
+129b76e3aeafa8afa3ea76d995b964b145fe83700d579f6ff42c4c38fa0968ea  parakeet-tdt-0.6b-v3/Preprocessor.mlmodelc/weights/weight.bin
+97f19ecccd0fdc730d76fb918090fa8bc64bce8ea4ad43715d5e9c2c7350db66  parakeet-tdt-0.6b-v3/config.json
+7ec60e05f1b24480736ec0eed40900f4626bce1fa9a60fd700ec7e2a59198735  parakeet-tdt-0.6b-v3/parakeet_v3_vocab.json
+7ec60e05f1b24480736ec0eed40900f4626bce1fa9a60fd700ec7e2a59198735  parakeet-tdt-0.6b-v3/parakeet_vocab.json
+fe92b6cfaa012abd5248c0bc877832f19807015abffc60d87b8ccc8ccb48b3b5  parakeet-ultra/Decoder.mlmodelc/analytics/coremldata.bin
+3b06e66768f0df7e21795f50e2b29300e33eeb1a2579dc42c695279c2d308497  parakeet-ultra/Decoder.mlmodelc/coremldata.bin
+956f600207f88396017ca5c96cfa3acd5bfee60835a5b44b762e033a8fb28955  parakeet-ultra/Decoder.mlmodelc/model.mil
+02a0d219f281b9665bc10c8768649403b2eebbbf4b44c627041d948e0de11bb4  parakeet-ultra/Decoder.mlmodelc/weights/weight.bin
+d87101d824d6723cf95304da33755c3c60e762663b9ef2b0c4bd0aa166a09a0d  parakeet-ultra/Encoder.mlmodelc/analytics/coremldata.bin
+397a84a4062f563cbc5f56077c674f09a61d85be5090f61d2f1932afb92ac0fe  parakeet-ultra/Encoder.mlmodelc/coremldata.bin
+f5d601568a4171d99a314c0fe3f6bc67715da2623732a3fb566e050ea83e5848  parakeet-ultra/Encoder.mlmodelc/model.mil
+315ba01f33cadbf601d43ac7f5c86208b7aa75fdaa34705c9869d5abe3521c9b  parakeet-ultra/Encoder.mlmodelc/weights/weight.bin
+68d38ca646aebafa7a9329e2efda50f5767c49e89fdb5f77f212072bb66f97c4  parakeet-ultra/JointDecisionv3.mlmodelc/analytics/coremldata.bin
+5e3af5a4ce686f6c237cadbd9284e10d333bc0e1546633cd0e430e6194044bc4  parakeet-ultra/JointDecisionv3.mlmodelc/coremldata.bin
+791b3c3cf3eb2079c84623fc880f6bba008d1366e5f8b03e9a8ed8bd4d7194a0  parakeet-ultra/JointDecisionv3.mlmodelc/model.mil
+3f310b85b82341c53ec383025ab094a4e462ee1c592e1ad7c6bfe39cff66ca25  parakeet-ultra/JointDecisionv3.mlmodelc/weights/weight.bin
+c9beeb989c8d66f8be11df59bc6df277ec76cee404f6865b46243835ef562f6d  parakeet-ultra/Preprocessor.mlmodelc/analytics/coremldata.bin
+dbde3f2300842c1fd51ef3ff948a0bcffe65ffd2dca10707f2509f32c1d65b1d  parakeet-ultra/Preprocessor.mlmodelc/coremldata.bin
+2a98699e22d279dd37fa1d238aeb1c6db1df0d6fad687775324157689d8f3acf  parakeet-ultra/Preprocessor.mlmodelc/metadata.json
+4b8518a956450fec57f06c2a21bdffc26973f7f1fa6842fb38fe917f896b6b93  parakeet-ultra/Preprocessor.mlmodelc/model.mil
+129b76e3aeafa8afa3ea76d995b964b145fe83700d579f6ff42c4c38fa0968ea  parakeet-ultra/Preprocessor.mlmodelc/weights/weight.bin
+965c69bf500c7be18958df6438dc1ba897721690ae412937ca7c91e28cec1870  parakeet-ultra/config.json
+7ec60e05f1b24480736ec0eed40900f4626bce1fa9a60fd700ec7e2a59198735  parakeet-ultra/parakeet_v3_vocab.json
+7ec60e05f1b24480736ec0eed40900f4626bce1fa9a60fd700ec7e2a59198735  parakeet-ultra/parakeet_vocab.json
+46de1a6fe2e49d19a2125bc91acf020df7f2aea84ba821532aade8427a440b05  parakeet-tdt-0.6b-v2/Decoder.mlmodelc/analytics/coremldata.bin
+d200ca07694a347f6d02a3886a062ae839831e094e443222f2e48a14945966a8  parakeet-tdt-0.6b-v2/Decoder.mlmodelc/coremldata.bin
+90a279b822496316458febc0ce761ab05954fadd9d66aa97bea077a35fc8f2b2  parakeet-tdt-0.6b-v2/Decoder.mlmodelc/metadata.json
+7b95a5a6b672c652000348a67b6d4d92bb8e176b978c6666fe73c28a4d7ec579  parakeet-tdt-0.6b-v2/Decoder.mlmodelc/model.mil
+27d26890221d82322c1092fd99d7b40578e435d5cf4b83c887c42603caf97aba  parakeet-tdt-0.6b-v2/Decoder.mlmodelc/weights/weight.bin
+42e638870d73f26b332918a3496ce36793fbb413a81cbd3d16ba01328637a105  parakeet-tdt-0.6b-v2/Encoder.mlmodelc/analytics/coremldata.bin
+4def7aa848599ad0e17a8b9a982edcdbf33cf92e1f4b798de32e2ca0bc74b030  parakeet-tdt-0.6b-v2/Encoder.mlmodelc/coremldata.bin
+58222fbc48c13c49d9715567803cd50cb9c23e4360462e0f8ffcea59a2c73c63  parakeet-tdt-0.6b-v2/Encoder.mlmodelc/metadata.json
+ed7b19156ca29fa7dfd6891deb9fda4b0e8893f68597c985d135736546a43808  parakeet-tdt-0.6b-v2/Encoder.mlmodelc/model.mil
+4adc7ad44f9d05e1bffeb2b06d3bb02861a5c7602dff63a6b494aed3bf8a6c3e  parakeet-tdt-0.6b-v2/Encoder.mlmodelc/weights/weight.bin
+f1183ba213bb94a918c8d2cad19ab045320618f97f6ca662245b3936d7b090f7  parakeet-tdt-0.6b-v2/JointDecision.mlmodelc/analytics/coremldata.bin
+e2c6752f1c8cf2d3f6f26ec93195c9bfa759ad59edf9f806696a138154f96f11  parakeet-tdt-0.6b-v2/JointDecision.mlmodelc/coremldata.bin
+ba8d309417b9acd4a175fdb15687de6a941db2f5b06666a60e7cf3cc8e2d3c3c  parakeet-tdt-0.6b-v2/JointDecision.mlmodelc/metadata.json
+93bf82042235127cb81ab537dcae47a1c2e7e242ce4ffdaf772981b45eedc4f0  parakeet-tdt-0.6b-v2/JointDecision.mlmodelc/model.mil
+ca22a65903a05e64137677da608077578a8606090a598abf4875fa6199aaa19d  parakeet-tdt-0.6b-v2/JointDecision.mlmodelc/weights/weight.bin
+03ab3c1327a054c54c07a40325db967ec574f2c91dcc8192bfa44aa561bcf2d8  parakeet-tdt-0.6b-v2/Preprocessor.mlmodelc/analytics/coremldata.bin
+d88ea1fc349459c9e100d6a96688c5b29a1f0d865f544be103001724b986b6d6  parakeet-tdt-0.6b-v2/Preprocessor.mlmodelc/coremldata.bin
+fb16c581ff5e1b962e7cb2181ed892cd32f9f84c12b6e80ff3e089f28e35bcbb  parakeet-tdt-0.6b-v2/Preprocessor.mlmodelc/metadata.json
+3e06d16fd061294c8a75be68c43a3b1ed1f593d4a9c35249e9cdbccadc59721e  parakeet-tdt-0.6b-v2/Preprocessor.mlmodelc/model.mil
+a5f7df6c7f47147ae9486fe18cc7792f9a44d093ec3c6a11e91ef2dc363c48dc  parakeet-tdt-0.6b-v2/Preprocessor.mlmodelc/weights/weight.bin
+ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356  parakeet-tdt-0.6b-v2/config.json
+57019fe3c745772ca83a1b048a4bb951cd51329504ea33d4d83316b96e279a97  parakeet-tdt-0.6b-v2/parakeet_vocab.json

@@ -40,7 +40,20 @@ got=$(LARYNX_CONFIG_DIR="$cfg" "$bin" clean "ask zorblacks" --app dev.zed.Zed)
 if [ "$got" = "ask Zorblax" ]; then echo "PASS  words add: the next clean uses the new word"; else echo "FAIL  words add: got '$got'"; fail=1; fi
 got=$("$bin" clean "the cat clawed the sofa" --app dev.zed.Zed)
 if [ "$got" = "the cat clawed the sofa" ]; then echo "PASS  clean: the cat clawed the sofa stays"; else echo "FAIL  clean: got '$got'"; fail=1; fi
+# The manifest built into the binary is the one committed as models.sha256.
+if "$bin" models manifest | diff -q - models.sha256 >/dev/null; then
+    echo "PASS  models manifest: binary matches models.sha256"; else echo "FAIL  models manifest differs from models.sha256"; fail=1; fi
 if [ -L "$home/models" ]; then
+    check models verify
+    # A changed file fails the check. Uses an APFS clone of the models, never the real ones.
+    tamper="$home/tamper"; mkdir -p "$tamper"
+    cp -cR "$HOME/.larynx/models" "$tamper/models"
+    echo " " >> "$tamper/models/parakeet-tdt-0.6b-v3/config.json"
+    if LARYNX_HOME="$tamper" "$bin" models verify --json | jq -e '.ok == false' >/dev/null; then
+        echo "PASS  models verify: a changed file fails"; else echo "FAIL  models verify: a changed file passed"; fail=1; fi
+    if ! LARYNX_HOME="$tamper" "$bin" models fetch >/dev/null 2>&1 && [ -f "$tamper/models/parakeet-tdt-0.6b-v3/config.json" ]; then
+        echo "PASS  models fetch: refuses a changed model and keeps the files"; else echo "FAIL  models fetch: accepted a changed model"; fail=1; fi
+    rm -rf "$tamper"
     check transcribe "$wav"
     if "$bin" last --json | jq -e '.cleanup == "rules" and (.clean_ms | type == "number") and (.transcribe_ms | type == "number")' >/dev/null; then
         echo "PASS  last: cleanup rules with transcribe_ms and clean_ms"; else echo "FAIL  last: cleanup or timings missing"; fail=1; fi

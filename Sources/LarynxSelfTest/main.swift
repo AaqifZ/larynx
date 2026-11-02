@@ -271,6 +271,41 @@ do {
     check(c.maxHold == 90 && c.maxHandsFree == 300 && Config().maxHold == 120, "larynx.toml sets the time limits")
 }
 
+// after each failure the next recording decides: recovery is a landed recording, not a live process
+do {
+    func line(_ pid: Int, _ text: String, day: Int = 1) -> String { "2026-11-0\(day) 10:00:00.000 Larynx[\(pid):9] larynx: \(text)" }
+    func outcome(_ result: String) -> String { "outcome ABCD mic=x audio=1.0s result=\(result) words=1" }
+    func row(_ r: RecoveryReport, _ k: String) -> RecoveryReport.Row { r.rows.first { $0.kind == k }! }
+
+    var r = RecoveryReport.parse([line(1, outcome("mic-error(x)")), line(1, outcome("mic-error(x)")), line(2, outcome("pasted"))].joined(separator: "\n"))
+    check(row(r, "mic-error").total == 2 && row(r, "mic-error").failed == 1 && row(r, "mic-error").recovered == 1, "a repeated mic error counts as a failed recovery, then a landed one")
+    check(row(r, "restart").recovered == 1 && !r.ok, "a new pid is a restart, and any failed recovery means not ok")
+
+    r = RecoveryReport.parse([line(1, "main thread stuck 12 s"), line(2, outcome("clipboard"))].joined(separator: "\n"))
+    check(row(r, "hang").recovered == 1 && r.ok, "a hang recovers when the next recording lands on the clipboard")
+
+    r = RecoveryReport.parse([line(1, "mic closed (sleep)"), line(1, outcome("cancelled")), line(1, outcome("empty")), line(1, outcome("silent"))].joined(separator: "\n"))
+    check(row(r, "sleep").failed == 1 && row(r, "silent").waiting == 1, "cancelled and empty say nothing; a silent one fails the sleep and waits itself")
+
+    r = RecoveryReport.parse([line(1, outcome("error(x)")), line(1, outcome("silent"), day: 2), line(1, outcome("pasted"), day: 2)].joined(separator: "\n"), since: "2026-11-02")
+    check(row(r, "error").total == 0 && row(r, "silent").recovered == 1, "--since drops older lines")
+    check(RecoveryReport.parse("noise\nLarynxApp[1:2] larynx: outcome x result=error(y)").rows.allSatisfy { $0.total == 0 }, "other processes' lines are ignored")
+}
+
+// after any early end the keys are idle, so the next press records
+do {
+    func nextPressRecords(_ k: inout KeyMachine, at t: Double) -> Bool { k.state == .idle && k.down(at: t, shift: false) == .start }
+    var k = KeyMachine()
+    _ = k.down(at: 0, shift: false); _ = k.watch(fnDown: true, at: 0.1); _ = k.watch(fnDown: false, at: 3)
+    check(nextPressRecords(&k, at: 4), "the next press records after a missed release")
+    k = KeyMachine()
+    _ = k.down(at: 0, shift: false); _ = k.watch(fnDown: false, at: 121)
+    check(nextPressRecords(&k, at: 122), "the next press records after the time limit")
+    k = KeyMachine()
+    _ = k.down(at: 0, shift: false); _ = k.escape(); _ = k.up(at: 1)
+    check(nextPressRecords(&k, at: 2), "the next press records after Esc")
+}
+
 // Esc cancels any recording
 do {
     var k = KeyMachine()
@@ -552,7 +587,10 @@ do {
     }
     let perf = TimingStats(times)
     print(String(format: "      cleaner, 200 words x 1000: median %.3f ms, p95 %.3f ms", perf.median ?? -1, perf.p95 ?? -1))
-    check((perf.median ?? 99) < 2, "cleaner median under 2 ms on 200 words (1000 runs)")
+    // A shared CI machine is too loaded for a time limit; the number above still prints.
+    if ProcessInfo.processInfo.environment["CI"] == nil {
+        check((perf.median ?? 99) < 2, "cleaner median under 2 ms on 200 words (1000 runs)")
+    }
 } catch { check(false, "cleaner threw \(error)") }
 
 // rules reload when a file changes, and `words add` appends safely

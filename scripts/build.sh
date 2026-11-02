@@ -2,7 +2,7 @@
 # Builds dist/Larynx.app (menu bar app) and dist/larynx (CLI), then signs the app.
 # Signing: set LARYNX_SIGN_IDENTITY to a code-signing identity in your keychain so
 # permission grants survive rebuilds. Without it, the app is signed ad-hoc.
-# Make the identity's private key ask before each use (README: Protect the signing key).
+# Make the identity's private key ask before each use (CONTRIBUTING.md: Protect the signing key).
 # local/build.env, if present, sets LARYNX_SIGN_IDENTITY and LARYNX_BUNDLE_ID (git ignores local/).
 set -euo pipefail
 cd "${0:A:h:h}"
@@ -15,11 +15,17 @@ swift build -c release --disable-sandbox --product larynx
 
 app_path="$PWD/dist/Larynx.app"
 rm -rf "$app_path"
-mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Resources"
+mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Helpers" "$app_path/Contents/Resources"
 cp .build/release/LarynxApp "$app_path/Contents/MacOS/Larynx"
 cp packaging/Info.plist "$app_path/Contents/Info.plist"
 plutil -replace CFBundleIdentifier -string "$bundle_id" "$app_path/Contents/Info.plist"
 cp packaging/AppIcon.icns "$app_path/Contents/Resources/AppIcon.icns"
+# The shipped settings, copied to ~/.larynx on the first run.
+cp larynx.toml words.toml styles.toml "$app_path/Contents/Resources/"
+cp scripts/install.sh "$app_path/Contents/Resources/install.sh"
+# The larynx tool goes inside the app too: the app runs it once to fetch the speech model.
+# Helpers, not MacOS: the disk ignores case, so MacOS/larynx would replace MacOS/Larynx.
+cp .build/release/larynx "$app_path/Contents/Helpers/larynx"
 # FluidAudio resource bundles, if the build made any.
 for b in .build/release/*.bundle(N); do cp -R "$b" "$app_path/Contents/Resources/"; done
 cp .build/release/larynx dist/larynx
@@ -27,9 +33,11 @@ cp .build/release/larynx dist/larynx
 identity="${LARYNX_SIGN_IDENTITY:-}"
 # Self-signed, so it is not "valid" (-v) to the trust system: look it up without -v.
 if [[ -n "$identity" ]] && security find-identity -p codesigning | grep -q "\"$identity\""; then
+    codesign --force --options runtime --sign "$identity" --identifier "$bundle_id.cli" "$app_path/Contents/Helpers/larynx"
     codesign --force --options runtime --entitlements packaging/Larynx.entitlements --sign "$identity" --identifier "$bundle_id" "$app_path"
     signed_with="$identity"
 else
+    codesign --force --options runtime --sign - --identifier "$bundle_id.cli" "$app_path/Contents/Helpers/larynx"
     codesign --force --options runtime --entitlements packaging/Larynx.entitlements --sign - --identifier "$bundle_id" "$app_path"
     signed_with="ad-hoc"
     echo "WARNING: no LARYNX_SIGN_IDENTITY in the keychain, so Larynx.app is signed ad-hoc."

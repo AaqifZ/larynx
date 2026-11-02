@@ -9,6 +9,10 @@ public enum DebugChannel {
     /// The release app never trusts its environment (see `Paths.trustsEnvironment`), so this is always off there.
     public static var enabled: Bool { Paths.trustsEnvironment && ProcessInfo.processInfo.environment["LARYNX_DEBUG"] == "1" }
 
+    /// With LARYNX_QUIET=1 a debug instance has no key tap, no pill, no menu bar item and no clipboard,
+    /// so `scripts/recovery.sh` can run while someone dictates.
+    public static var quiet: Bool { enabled && ProcessInfo.processInfo.environment["LARYNX_QUIET"] == "1" }
+
     /// A request line longer than this is refused.
     static let maxRequest = 64 * 1024
     /// A client that sends nothing for this long is dropped.

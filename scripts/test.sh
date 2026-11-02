@@ -29,6 +29,7 @@ check last
 check history
 check debug state   # app not running in the test: still a JSON error
 check stats
+check recovery
 check words
 check clean "Um, so ask clawed to fix the demo." --app com.tinyspeck.slackmacgap
 

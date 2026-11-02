@@ -21,6 +21,12 @@ public struct SystemClipboard: Clipboard {
     }
 }
 
+/// Holds nothing. For a quiet debug instance, which must not touch the user's clipboard.
+public struct NoClipboard: Clipboard {
+    public init() {}
+    public func write(_ text: String) throws {}
+}
+
 public enum HandOverError: Error, CustomStringConvertible {
     case clipboard
     public var description: String { "could not write to the clipboard" }

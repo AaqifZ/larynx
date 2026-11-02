@@ -37,8 +37,12 @@ public struct SpeechModel: Sendable {
         return total
     }
 
+    /// Turns off FluidAudio's own download paths in this process. Only `larynx models fetch` downloads.
+    public static func refuseDownloads() { ModelHub.offlineMode = true }
+
     /// Loads from disk only. Never downloads: missing files are an error.
     public func load() throws -> AsrModels {
+        Self.refuseDownloads()
         guard isPresent else {
             throw SpeechError("speech model \(name) is not on this Mac. Run `larynx models fetch` once; it is the only command that uses the network.")
         }

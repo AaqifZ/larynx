@@ -59,7 +59,7 @@ public final class History {
 
     deinit { sqlite3_close(db) }
 
-    /// Slice 3 added timings. Old files get the columns with ALTER TABLE; old rows stay null.
+    /// Timings came later. Old files get the columns with ALTER TABLE; old rows stay null.
     private func migrate() throws {
         var have: Set<String> = []
         var stmt: OpaquePointer?

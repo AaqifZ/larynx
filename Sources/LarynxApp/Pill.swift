@@ -21,6 +21,7 @@ final class Pill {
     private var labelCenter: NSLayoutConstraint!
     private var labelSides: [NSLayoutConstraint] = []
     var levelSource: (() -> Float)?
+    var quiet = false
 
     init() {
         panel = NSPanel(contentRect: NSRect(origin: .zero, size: Pill.small),
@@ -81,11 +82,14 @@ final class Pill {
         panel.setFrameOrigin(NSPoint(x: f.midX - size.width / 2, y: f.minY + 28))
     }
 
+    /// Shows without activating Larynx or taking key focus.
+    private func front() { if !quiet { panel.orderFrontRegardless() } }
+
     /// Recording: the small capsule, meter only. The text argument is ignored on purpose.
     func listening(_ text: String = "") {
         hideWork?.cancel()
         layout(Pill.small, meterOn: true, text: nil)
-        panel.orderFrontRegardless() // shows without activating Larynx or taking key focus
+        front()
         meterTimer?.invalidate()
         meterTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
             guard let self else { return }
@@ -101,7 +105,7 @@ final class Pill {
         meterTimer?.invalidate()
         layout(Pill.small, meterOn: false, text: "✓")
         label.textColor = NSColor(red: 0.45, green: 0.85, blue: 0.65, alpha: 1)
-        panel.orderFrontRegardless()
+        front()
         hide(after: 0.15) // a blink, not a pause
     }
 
@@ -110,7 +114,7 @@ final class Pill {
         meterTimer?.invalidate()
         label.textColor = NSColor(white: 0.95, alpha: 1)
         layout(Pill.wide, meterOn: false, text: text)
-        panel.orderFrontRegardless()
+        front()
         hide(after: seconds)
     }
 

@@ -3,7 +3,7 @@ import LarynxCore
 import LarynxSpeech
 
 /// Larynx live: hold fn, talk, and the raw text lands at the cursor, or on the clipboard.
-/// Save first, paste second. No network code here, no settings window.
+/// Save first, paste second. The app makes no network connection and has no settings window.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
@@ -26,18 +26,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var liveTimer: Timer?
     private var tapRetry: Timer?
     private var startupError: String?
+    private var badModel: String?
+    private var clipboard: Clipboard { DebugChannel.quiet ? NoClipboard() : SystemClipboard() }
 
     func applicationDidFinishLaunching(_ note: Notification) {
+        SpeechModel.refuseDownloads()
         if LogFile.rotate() { NSLog("larynx: larynx.log passed 5 MB; the old log is larynx.log.1") }
         Silent.prune()
         setUpMenu()
+        statusItem.isVisible = !DebugChannel.quiet
+        pill.quiet = DebugChannel.quiet
         let config = Config.load()
         limits = (config.maxHold, config.maxHandsFree)
         keys = freshKeys()
         if config.values["key"] != "fn" { NSLog("larynx: only key = \"fn\" is supported in this version") }
         do {
             history = try History()
-            model = try SpeechModel.named(config.model)
+            // A typo in larynx.toml must not stop dictation: say so, and use the default model.
+            do { model = try SpeechModel.named(config.model) } catch {
+                badModel = "\(error)"
+                NSLog("larynx: \(error)")
+                model = try SpeechModel.named(Config().model)
+            }
             transcriber = Transcriber(model: model)
         } catch {
             startupError = "\(error)"
@@ -59,7 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         if !DebugChannel.enabled { Permissions.ask() }
         tap = KeyTap { [weak self] e in self?.onKey(e) }
-        if !tap.start() {
+        if !DebugChannel.quiet, !tap.start() {
             // Input Monitoring is off. Try again every few seconds so allowing it takes effect.
             tapRetry = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] t in
                 MainActor.assumeIsolated { if self?.tap.start() == true { t.invalidate() } }
@@ -67,10 +77,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         Task {
+            if !model.isPresent { await offerModelFetch() }
             do { try await transcriber.load() } catch { startupError = "\(error)"; NSLog("larynx: \(error)") }
             StallGuard.start() // after the model load, so a slow first load is never taken for a freeze
+            if let badModel { pill.show(badModel, for: 6) }
             let model = self.model.name
-            let found = await Inflight.recover(leftovers, model: model, history: history, clipboard: SystemClipboard()) {
+            let found = await Inflight.recover(leftovers, model: model, history: history, clipboard: clipboard) {
                 [transcriber] samples in try await transcriber!.transcribe(samples)
             }
             for r in found { NSLog("larynx: recovered \(r.file.lastPathComponent): \(r.dictation != nil ? "saved to history" : (r.error ?? "empty, deleted"))") }
@@ -86,6 +98,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             } catch { NSLog("larynx: debug socket: \(error)") }
         }
+    }
+
+    /// First run: the speech model is not on this Mac. The app makes no network connection, so it asks,
+    /// then runs the larynx tool inside its bundle, the one program that downloads (from Hugging Face).
+    private func offerModelFetch() async {
+        guard let tool = Paths.bundledTool else { return }
+        NSApp.activate(ignoringOtherApps: true)
+        let ask = NSAlert()
+        ask.messageText = "Download the speech model?"
+        ask.informativeText = "Larynx turns speech into text on this Mac with \(model.name). It needs the model files one time: about 480 MB from Hugging Face. After that, nothing leaves your Mac."
+        ask.addButton(withTitle: "Download")
+        ask.addButton(withTitle: "Not Now")
+        guard ask.runModal() == .alertFirstButtonReturn else { return }
+        statusItem.button?.title = "◉ larynx ↓"
+        pill.show("Downloading the speech model. This takes a few minutes.", for: 5)
+        let ok = await Task.detached { () -> Bool in
+            let p = Process()
+            p.executableURL = tool
+            p.arguments = ["models", "fetch"]
+            p.standardOutput = FileHandle.nullDevice
+            do { try p.run() } catch { return false }
+            p.waitUntilExit()
+            return p.terminationStatus == 0
+        }.value
+        statusItem.button?.title = "◉ larynx"
+        if ok { pill.show("Speech model ready. Hold fn and talk.", for: 4); return }
+        let fail = NSAlert()
+        fail.messageText = "The download did not finish"
+        fail.informativeText = "Check the network, then quit Larynx and open it again. Or run this in Terminal:\n\n\(tool.path) models fetch"
+        fail.runModal()
     }
 
     /// Opening Larynx again (Spotlight, Finder, `open`) shows its menu at the pointer,
@@ -368,7 +410,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 out.app = frontApp
                 d.app = frontApp
                 let probe = RecordingProbe()
-                let saved = try deliver(d, history: history, clipboard: SystemClipboard(), focus: probe,
+                let saved = try deliver(d, history: history, clipboard: clipboard, focus: probe,
                                         paster: paste ? CGPaster() : nil) {
                     try? FileManager.default.removeItem(at: file) // the text is safe: drop the audio
                 }
@@ -399,12 +441,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             struct State: Encodable {
                 let model: String; let model_loaded: Bool; let input_monitoring: Bool; let tap_running: Bool
                 let accessibility: Bool; let microphone: String; let recording: Bool; let today: Int; let pill_visible: Bool
-                let pill_text: String
+                let pill_text: String; let pid: Int32
             }
             return json(State(model: model?.name ?? "", model_loaded: await transcriber?.isLoaded ?? false,
                               input_monitoring: KeyTap.hasAccess, tap_running: tapRetry?.isValid != true,
                               accessibility: Permissions.accessibility, microphone: AVCaptureDeviceStatus.microphone,
-                              recording: current != nil, today: todayCount, pill_visible: pill.isVisible, pill_text: pill.text))
+                              recording: current != nil, today: todayCount, pill_visible: pill.isVisible, pill_text: pill.text, pid: getpid()))
+        case "hang":
+            // The main thread stops answering, so the stall guard can be seen to work.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { sleep(60) }
+            return json(["ok": "hanging"])
         case "feed":
             guard current == nil else { return json(["error": "busy: recording"]) }
             guard let path = obj["wav"] else { return json(["error": "missing wav"]) }

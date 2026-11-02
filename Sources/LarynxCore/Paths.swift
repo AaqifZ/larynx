@@ -26,7 +26,7 @@ public enum Paths {
     /// so a `git pull` cannot change what Larynx pastes. See `seedConfig`.
     public static var config: URL {
         if let dir = override("LARYNX_CONFIG_DIR") { return dir }
-        let local = defaults.appendingPathComponent("local", isDirectory: true)
+        let local = repo.appendingPathComponent("local", isDirectory: true)
         if FileManager.default.fileExists(atPath: local.appendingPathComponent("larynx.toml").path) { return local }
         seedConfig(into: home)
         return home
@@ -47,11 +47,29 @@ public enum Paths {
         }
     }
 
-    /// The repo, found from the source path at build time. Its .toml files are the shipped defaults.
+    /// The shipped defaults: Larynx.app's Resources when this runs from the app bundle
+    /// (the app, or the larynx tool inside it), else the repo's .toml files.
     public static var defaults: URL {
+        if let exe = Bundle.main.executableURL?.resolvingSymlinksInPath() {
+            // Larynx.app/Contents/{MacOS,Helpers}/<exe> -> Larynx.app/Contents/Resources
+            let res = exe.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Resources", isDirectory: true)
+            if FileManager.default.fileExists(atPath: res.appendingPathComponent("larynx.toml").path) { return res }
+        }
+        return repo
+    }
+
+    /// The repo, found from the source path at build time.
+    static var repo: URL {
         // <repo>/Sources/LarynxCore/Paths.swift -> <repo>
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    }
+
+    /// The larynx tool inside Larynx.app, when the app runs from its bundle.
+    public static var bundledTool: URL? {
+        guard let exe = Bundle.main.executableURL?.resolvingSymlinksInPath() else { return nil }
+        let tool = exe.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Helpers/larynx")
+        return FileManager.default.isExecutableFile(atPath: tool.path) ? tool : nil
     }
 
     /// Makes a private folder (0700): dictation text is personal.

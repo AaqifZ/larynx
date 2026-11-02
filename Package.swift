@@ -21,7 +21,7 @@ let package = Package(
             "LarynxCore", "LarynxSpeech",
             .product(name: "FluidAudio", package: "FluidAudio"),
         ]),
-        // The menu bar app (packaged as dist/Larynx.app by scripts/build.sh). No network code.
+        // The menu bar app (packaged as dist/Larynx.app by scripts/build.sh). It makes no network connection.
         .executableTarget(name: "LarynxApp", dependencies: ["LarynxCore", "LarynxSpeech"]),
         // Tests without XCTest (CLT-only machine): `swift run LarynxSelfTest`.
         .executableTarget(name: "LarynxSelfTest", dependencies: ["LarynxCore"]),

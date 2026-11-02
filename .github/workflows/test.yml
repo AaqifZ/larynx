@@ -1,0 +1,23 @@
+name: Test
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    # Public repository only: macOS minutes cost money on a private one.
+    if: ${{ !github.event.repository.private }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - run: swift build -c release --product LarynxApp
+      - run: swift build -c release --product larynx
+      - run: swift build -c release --product LarynxSelfTest
+      # The self-test skips its time limit when CI is set.
+      - run: LARYNX_HOME="$(mktemp -d)" .build/release/LarynxSelfTest

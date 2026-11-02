@@ -18,7 +18,7 @@ public struct Dictation: Codable, Equatable, Sendable {
     public var durationS: Double
     public var landed: Landed
     /// Milliseconds spent turning audio into text, and on the rules cleanup. Nil on rows
-    /// from before slice 3 and where a step did not run.
+    /// from before timings existed and where a step did not run.
     public var transcribeMs: Double?
     public var cleanMs: Double?
     /// The front app's bundle id when it landed: a name only, never a window title. Nil on old rows.

@@ -1,58 +1,48 @@
 # Larynx
 
-Larynx is a private dictation tool for macOS. Hold fn, talk, and let go: the text lands in the text box you are in. Speech becomes text on your Mac with NVIDIA Parakeet, run on the Apple Neural Engine by FluidAudio. No audio or text goes to a server.
+Private dictation for macOS: hold fn, talk, and let go. The text lands in the text box you are in.
+
+<!-- Demo GIF slot (10 seconds): add packaging/demo.gif, then replace this comment with ![Larynx demo](packaging/demo.gif) -->
+
+Paste this to your coding agent:
+
+```text
+Download Larynx from GitHub at this exact version, read the code, build it, and set it up: https://github.com/AaqifZ/larynx/tree/PINNED_COMMIT
+```
+
+<!-- Proof numbers slot: refresh these on launch day, and show only measured numbers. -->
+
+Speech becomes text on your Mac with NVIDIA Parakeet, run on the Apple Neural Engine by FluidAudio. No audio or text goes to a server.
 
 There are two parts: the menu bar app (`Larynx.app`) and the command line tool (`larynx`).
 
-## Requirements
+The mic stays open for 5 minutes after a dictation by default, so the next dictation keeps its first word. The orange mic dot shows during that time. Larynx keeps only the last 0.5 seconds in memory and writes nothing to disk until you press the key. Set `warm_mic_minutes = 0` in `~/.larynx/larynx.toml` to close the mic after each dictation.
 
-- An Apple Silicon Mac with macOS 14 or later.
-- The Swift command line tools (Swift 5.9 or later).
+## Install
 
-## Build
+You need an Apple Silicon Mac with macOS 14 or later and the Xcode command line tools (`xcode-select --install`). Larynx is tested on macOS 26.7 on one M4 Mac. macOS 14 and 15 are untested.
 
-1. Open a terminal in this folder.
-2. Run `swift build`.
-3. Find the tool at `.build/debug/larynx`.
+1. Get the source at the commit in the prompt above, and go to that folder.
+2. Run `./scripts/build.sh`. The first build takes about 6 minutes. A WARNING about ad-hoc signing is normal.
+3. Run `dist/larynx models fetch`. It downloads about 480 MB, one time, from Hugging Face.
+4. Run `./scripts/install.sh`. Larynx starts now and at each login.
 
-## Build the app
+A person must do these steps. No script or agent can do them.
 
-1. Run `./scripts/build.sh`.
-2. Find the app at `dist/Larynx.app` and the tool at `dist/larynx`.
-3. Read the last line of the output. It shows the signing identity.
+1. Open System Settings, Privacy & Security, Accessibility. Turn on Larynx.
+2. Open Privacy & Security, Input Monitoring. Turn on Larynx.
+3. Hold fn and say a sentence. Click Allow for the microphone.
+4. Hold fn, talk, and release fn. The text goes into the text box.
 
-Set `LARYNX_SIGN_IDENTITY` to the name of a code-signing identity in your keychain. Then the script signs with it, and macOS keeps the permissions after a rebuild. If the identity is missing, the script signs ad-hoc and prints a WARNING. Then you must allow the permissions again after each rebuild.
+If fn opens the emoji picker, open System Settings, Keyboard, and set "Press 🌐 key to" to "Do Nothing". If fn does nothing, quit Larynx from its menu and open it again.
 
-You can put `LARYNX_SIGN_IDENTITY` and `LARYNX_BUNDLE_ID` (default `local.larynx`) in `local/build.env`. Both scripts read that file.
+After a rebuild, macOS asks for the permissions again. To keep them, set a signing identity: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-### Protect the signing key
+### Uninstall
 
-Any process that can sign with the identity can make a binary that macOS treats as Larynx. That binary gets the permissions of Larynx with no prompt. Make the private key ask before each use:
-
-1. Open Keychain Access. Select the **login** keychain, then the **Keys** tab.
-2. Double-click the private key of the identity. Select the **Access Control** tab.
-3. Select **Confirm before allowing access**.
-4. Remove each application from the list "Always allow access by these applications".
-5. Select **Save Changes**.
-
-Each build then shows one prompt. Select **Allow** only for a build that you started. Do not select **Always Allow**.
-
-For more protection, keep the identity in a separate keychain. Unlock it with `security unlock-keychain` before a build, and lock it with `security lock-keychain` after the build.
-
-## Allow the permissions
-
-Do this one time, in System Settings, Privacy & Security.
-
-1. Open `dist/Larynx.app`.
-2. Add Larynx to Input Monitoring. Larynx uses it to see the fn key.
-3. Add Larynx to Accessibility. Larynx uses it to find the text box and to send one Cmd+V.
-4. Hold fn one time. Click Allow for the microphone.
-5. Quit Larynx from its menu, then open it again.
-
-## Start Larynx at login
-
-1. Run `./scripts/install.sh`.
-2. To stop it, run `launchctl bootout gui/$(id -u)/local.larynx`.
+1. Run `launchctl bootout gui/$(id -u)/local.larynx` to stop Larynx.
+2. Delete this folder, `~/Applications/Larynx.app` and `~/Library/LaunchAgents/local.larynx.plist`.
+3. Delete `~/.larynx` to remove your history, settings and the speech model.
 
 ## Use the app
 
@@ -64,15 +54,9 @@ Do this one time, in System Settings, Privacy & Security.
 - If no text box has focus, the text stays on the clipboard. Press Cmd+V to paste it.
 - Larynx saves each dictation in history before it pastes.
 
-## Get the speech model
+## The speech model
 
-Do this one time. This is the only command that uses the network.
-
-1. Run `.build/debug/larynx models fetch`.
-2. Wait for the download to finish. It is about 480 MB.
-3. Find the model in `~/.larynx/models/`.
-
-The command downloads each model at a fixed Hugging Face commit. It then checks the sha256 of every file against `models.sha256`. If one file differs, the command deletes the new download and stops with an error.
+`larynx models fetch` is the only command that uses the network. It downloads each model at a fixed Hugging Face commit. It then checks the sha256 of every file against `models.sha256`. If one file differs, the command deletes the new download and stops with an error.
 
 To check the model files again later, run `larynx models verify`. This command does not use the network.
 
@@ -87,7 +71,7 @@ To check the model files again later, run `larynx models verify`. This command d
 - Run `larynx stats` to show the median and p95 times for today and the last 7 days.
 - Add `--json` to any command to get JSON.
 
-Larynx keeps history in `~/.larynx/history.db`. It deletes rows older than 30 days. Set `LARYNX_HOME` to use a different folder.
+Larynx keeps history in `~/.larynx/history.db`. It deletes rows older than 30 days. The `larynx` tool uses the folder in `LARYNX_HOME` if you set it. The app ignores `LARYNX_HOME`.
 
 ## Change a setting
 
@@ -107,24 +91,13 @@ To keep your settings in this folder instead (for development):
 2. Copy `larynx.toml`, `words.toml` and `styles.toml` into `local/`.
 3. Edit the copies. Larynx reads `local/` in place of `~/.larynx/` when `local/` holds a `larynx.toml`. Git ignores `local/`.
 
-By default the mic stays open for 5 minutes after a dictation, so the next dictation keeps its first word. The orange mic dot shows during that time. Set `warm_mic_minutes = 0` in `larynx.toml` to close the mic after each dictation.
+## Test recovery
 
-## Test
+Larynx counts a failure as recovered only when the next dictation lands.
 
-1. Run `./scripts/test.sh`.
-2. Make sure that each line starts with `PASS`.
+1. Run `scripts/recovery.sh`. It breaks a hidden test copy of Larynx in 6 ways, then feeds it a new dictation. You can dictate while it runs.
+2. Run `larynx recovery` to read your own `larynx.log`. For each restart, freeze, mic error, sleep and mic change, it shows if the next recording landed. Add `--since 2026-11-01` to skip older lines.
 
-The test uses a temporary history. The test saves the clipboard text and puts it back at the end.
+## Contribute
 
-## Test the app without a microphone
-
-1. Quit the normal Larynx. Two copies both listen to fn.
-2. Build the debug app: `swift build --product LarynxApp`. The release app in `dist/` ignores the debug variables.
-3. Start the debug app with a short temporary home (socket paths have a length limit): `LARYNX_DEBUG=1 LARYNX_HOME=~/.lxp .build/debug/LarynxApp &`. Link `~/.larynx/models` into it.
-4. Run `LARYNX_HOME=~/.lxp dist/larynx debug feed <file.wav>`. Add `--app <bundle id>` to test a style. Add `--paste` to post Cmd+V.
-5. Read the JSON reply. It shows the text, `landed`, the style and the times.
-6. Stop the debug app. Start the normal app from a clean environment: `env -u LARYNX_HOME -u LARYNX_CONFIG_DIR open dist/Larynx.app`.
-
-WARNING: Clear `LARYNX_HOME` and `LARYNX_CONFIG_DIR` before you use `open`. `open` gives your shell environment to the app, and the app then writes to the wrong folder.
-
-Debug mode opens a local socket, `~/.larynx/debug.sock`. It is not a network port. Add `--stream` to feed the audio at real speed. Use it to test a crash with `kill -9`.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) to protect a signing key, run the tests, and test the app with no microphone. Read [SECURITY.md](SECURITY.md) to report a security problem. Read [CHANGELOG.md](CHANGELOG.md) for the changes in each release.

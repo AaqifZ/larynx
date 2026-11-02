@@ -17,6 +17,8 @@ let usage = """
       larynx history [--json]                   the last 30 days, newest first
       larynx stats [--json]                     median and p95 of transcribe_ms and clean_ms, today and 7 days
       larynx status [--json]                    model, files, counts
+      larynx recovery [--since YYYY-MM-DD] [--json]
+                                                from larynx.log: after each failure, did the next recording land?
       larynx models fetch [--json]              download the speech model (the only network use)
       larynx models verify [--json]             check the model files against the pinned sha256 manifest (offline)
       larynx debug feed <wav> [--raw] [--stream] [--paste] [--app <bundle id>] [--json]
@@ -243,6 +245,16 @@ func seconds(since t: DispatchTime) -> Double {
         default:
             throw CLIError("usage: larynx models fetch|verify [--json]")
         }
+
+    case "recovery":
+        let report = RecoveryReport.read(since: option("--since", in: args) ?? "")
+        if asJSON { print(try JSON.render(report)); break }
+        print("after each event, the next recording:")
+        for r in report.rows where r.total > 0 {
+            let last = r.last_failed.map { "  last failed \($0)" } ?? ""
+            print("  \(r.kind.padding(toLength: 12, withPad: " ", startingAt: 0)) \(r.total) seen, \(r.recovered) landed, \(r.failed) failed, \(r.waiting) waiting\(last)")
+        }
+        if report.rows.allSatisfy({ $0.total == 0 }) { print("  nothing went wrong in this log") }
 
     case "debug":
         guard args.count >= 2 else { throw CLIError("usage: larynx debug feed <wav> [--raw] | larynx debug state") }
